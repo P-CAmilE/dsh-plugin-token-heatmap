@@ -4,7 +4,11 @@ import { TokenHeatmapOverlay } from "./TokenHeatmapOverlay.tsx";
 import { mountTokenHeatmapRemote, type TokenHeatmapRemote } from "./remote.ts";
 
 export const name = "token-heatmap";
-export const inject = ["@deepseek-ai/dsh-client-runtime", "@deepseek-ai/dsh-api-gateway"];
+// 客户端 Cordis 声明的 inject 是「服务名」，不是包名（包名写在 package.json 的
+// dsh.client.inject 里，由模块系统用于加载顺序）。服务名错误会导致条目永远
+// pending（waiting for services）并阻断整个 web boot。
+// 对应提供方：slots / sessions ← @deepseek-ai/dsh-client-runtime，remote ← @deepseek-ai/dsh-api-gateway。
+export const inject = ["slots", "remote", "sessions"];
 
 export function apply(ctx: Context): void {
   ctx.inject(["slots", "remote", "sessions"], (baseCtx) => {
