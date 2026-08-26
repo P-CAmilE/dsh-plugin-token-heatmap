@@ -1,7 +1,7 @@
 import type { Context } from "@deepseek-ai/cordis";
 import type { SessionRuntime } from "@deepseek-ai/dsh-client-runtime/client";
 import { TokenHeatmapOverlay } from "./TokenHeatmapOverlay.tsx";
-import { mountTokenHeatmapRemote, type TokenHeatmapRemote } from "./remote.ts";
+import { createTokenHeatmapRemote, mountTokenHeatmapRemote, type TokenHeatmapNamespace } from "./remote.ts";
 
 export const name = "token-heatmap";
 // 客户端 Cordis 声明的 inject 是「服务名」，不是包名（包名写在 package.json 的
@@ -18,8 +18,9 @@ export function apply(ctx: Context): void {
     if (slots === undefined || remote === undefined || sessions === undefined) return;
     mountTokenHeatmapRemote(baseCtx, remote);
     baseCtx.inject(["remote.tokenHeatmap"], (nsCtx) => {
-      const api = nsCtx.get("remote.tokenHeatmap") as TokenHeatmapRemote | undefined;
-      if (api === undefined) return;
+      const ns = nsCtx.get("remote.tokenHeatmap") as TokenHeatmapNamespace | undefined;
+      if (ns === undefined) return;
+      const api = createTokenHeatmapRemote(ns);
       slots.inject("shell.overlay", () =>
         slots.register({ name: "shell.overlay", id: "token-heatmap", inject: () => ({ api, sessions }) }, TokenHeatmapOverlay),
       );

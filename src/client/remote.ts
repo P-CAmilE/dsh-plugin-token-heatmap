@@ -20,11 +20,47 @@ export interface BackfillStatusPayload {
   finishedAt: number | null;
 }
 
-/** 挂载完成后可调用的命名空间服务接口（ctx.get('remote.tokenHeatmap')）。 */
+/** Typert 网关 RPC 信封：命名空间方法返回 { ok, value } 或 { ok:false, error }（见 dsh-api-gateway client.invoke）。 */
+export interface RemoteOk<T> {
+  ok: true;
+  value: T;
+}
+
+export interface RemoteFailure {
+  ok: false;
+  error: { code: string; message: string; details: Record<string, unknown> };
+}
+
+export type RemoteResult<T> = RemoteOk<T> | RemoteFailure;
+
+/** ctx.get('remote.tokenHeatmap') 返回的命名空间服务（信封形态）。 */
+export interface TokenHeatmapNamespace {
+  getGlobalUsage(): Promise<RemoteResult<UsagePayload>>;
+  getSessionUsage(sessionId: string): Promise<RemoteResult<UsagePayload>>;
+  getBackfillStatus(): Promise<RemoteResult<BackfillStatusPayload>>;
+}
+
+/** UI 消费的业务接口：已解包的信封 value，RPC 失败时 reject（带 code/message）。 */
 export interface TokenHeatmapRemote {
   getGlobalUsage(): Promise<UsagePayload>;
   getSessionUsage(sessionId: string): Promise<UsagePayload>;
   getBackfillStatus(): Promise<BackfillStatusPayload>;
+}
+
+/** 把命名空间信封适配为业务接口（与出厂消费者模式一致：先查 result.ok，再取 result.value）。 */
+export function createTokenHeatmapRemote(ns: TokenHeatmapNamespace): TokenHeatmapRemote {
+  const call = async <T,>(pending: Promise<RemoteResult<T>>, method: string): Promise<T> => {
+    const result = await pending;
+    if (!result.ok) {
+      throw new Error(`tokenHeatmap.${method} failed: ${result.error.code}: ${result.error.message}`);
+    }
+    return result.value;
+  };
+  return {
+    getGlobalUsage: () => call(ns.getGlobalUsage(), "getGlobalUsage"),
+    getSessionUsage: (sessionId: string) => call(ns.getSessionUsage(sessionId), "getSessionUsage"),
+    getBackfillStatus: () => call(ns.getBackfillStatus(), "getBackfillStatus"),
+  };
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
