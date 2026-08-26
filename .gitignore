@@ -1,0 +1,5 @@
+node_modules/
+lib/
+.DS_Store
+docs/.DS_Store
+docs/superpowers/.DS_Store
