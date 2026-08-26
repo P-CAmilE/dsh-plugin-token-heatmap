@@ -32,7 +32,7 @@
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --test \"test/**/*.test.ts\"",
+    "test": "node --import ./test/helpers/ts-decorators-preload.mjs --test \"test/**/*.test.ts\"",
     "test:ui": "vitest run"
   },
   "peerDependencies": {
