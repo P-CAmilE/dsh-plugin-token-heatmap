@@ -86,6 +86,8 @@ export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote
   const [backfill, setBackfill] = useState<BackfillStatusPayload | null>(null);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
+  /** 数据身份 = 视图 + 宿主版本号：全局/会话共享同一版本计数，切换视图时不能沿用另一视图的旧数据。 */
+  const dataKeyRef = useRef<string>("");
   const [currentId, setCurrentId] = useState<string | undefined>(() => sessions.list.getSnapshot().current);
   const positionRef = useRef(position);
   positionRef.current = position;
@@ -109,7 +111,11 @@ export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote
           api.getBackfillStatus(),
         ]);
         if (cancelled) return;
-        setData((previous) => (previous.version === payload.version ? previous : payload));
+        const key = view + ":" + payload.version;
+        if (dataKeyRef.current !== key) {
+          dataKeyRef.current = key;
+          setData(payload);
+        }
         setBackfill(status);
         setError(false);
         setLoading(false);
@@ -145,11 +151,14 @@ export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote
   }, []);
 
   const defaultPosition = useCallback(() => {
-    // 窗口右下角锚定在图标左上角（间距 WINDOW_ICON_GAP），图标被拖走后窗口默认位置跟随。
+    // 窗口始终位于图标正上方（水平居中）；图标贴近顶部放不下时落到图标下方。
     const iconX = iconPos?.x ?? window.innerWidth - ICON_MARGIN - ICON_SIZE;
     const iconY = iconPos?.y ?? window.innerHeight - ICON_MARGIN - ICON_SIZE;
-    const x = Math.min(Math.max(8, iconX - WINDOW_W - WINDOW_ICON_GAP), Math.max(8, window.innerWidth - WINDOW_W - 8));
-    const y = Math.min(Math.max(8, iconY - WINDOW_H - WINDOW_ICON_GAP), Math.max(8, window.innerHeight - WINDOW_H - 8));
+    const x = Math.min(Math.max(8, iconX + (ICON_SIZE - WINDOW_W) / 2), Math.max(8, window.innerWidth - WINDOW_W - 8));
+    const above = iconY - WINDOW_H - WINDOW_ICON_GAP;
+    const y = above >= 8
+      ? above
+      : Math.min(Math.max(8, iconY + ICON_SIZE + WINDOW_ICON_GAP), Math.max(8, window.innerHeight - WINDOW_H - 8));
     return { x, y };
   }, [iconPos]);
 
@@ -188,6 +197,9 @@ export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote
           setIconPos(pos);
           if (committed) {
             try { localStorage.setItem(LS_ICON_POSITION, JSON.stringify(pos)); } catch { /* ignore */ }
+            // 拖动过程中窗口实时跟随（winPos = defaultPosition 依赖 iconPos）；
+            // 松手后把窗口吸附回图标正上方，清除手动摆放位置。
+            setPosition(null);
           }
         }}
       />
@@ -199,7 +211,6 @@ export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote
               <div style={{ display: "flex", gap: 4 }}>
                 <button type="button" style={{ ...viewButtonStyle, fontWeight: view === "global" ? 700 : 400 }} onClick={() => switchView("global")}>全局</button>
                 <button type="button" style={{ ...viewButtonStyle, fontWeight: view === "session" ? 700 : 400 }} onClick={() => switchView("session")}>会话</button>
-                <button type="button" style={viewButtonStyle} onClick={toggle}>×</button>
               </div>
             </div>
             {error ? (

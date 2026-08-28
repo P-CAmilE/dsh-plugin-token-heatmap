@@ -35,7 +35,10 @@ const style = {
   } as CSSProperties,
   scroll: {
     overflowY: "auto",
-    maxHeight: 5 * STEP + 2,
+    display: "flex",
+    flexDirection: "column",
+    gap: GAP, // 行与行之间的固定间距（此前块级堆叠导致行间距为 0）
+    maxHeight: 5 * STEP - GAP,
     scrollbarWidth: "none",
     msOverflowStyle: "none",
   } as CSSProperties,
