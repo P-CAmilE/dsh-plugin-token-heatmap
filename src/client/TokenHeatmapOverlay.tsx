@@ -4,7 +4,7 @@ import { dayKeyOf } from "../day.ts"; // [controller fix]
 import type { DailyUsageMap } from "../usage.ts"; // [controller fix]
 import { levelsFor } from "./palette.ts";
 import { HeatmapGrid } from "./HeatmapGrid.tsx";
-import { ICON_MARGIN, ICON_SIZE, ToggleIcon } from "./ToggleIcon.tsx";
+import { ICON_MARGIN, ICON_SIZE, ToggleIcon, type IconPosition } from "./ToggleIcon.tsx";
 import type { BackfillStatusPayload, TokenHeatmapRemote, UsagePayload } from "./remote.ts";
 
 const LS_VISIBLE = "dsh.tokenHeatmap.visible";
@@ -16,8 +16,9 @@ const RETRY_MIN_MS = 300;
 const RETRY_MAX_MS = 10000;
 const WINDOW_W = 190;
 const WINDOW_H = 220;
-/** 窗口默认弹出位置相对右下角图标的偏移（左右/上下对称）。 */
-const WINDOW_OFFSET = ICON_MARGIN + ICON_SIZE + 12;
+/** 窗口默认弹出位置与图标之间的间距。 */
+const WINDOW_ICON_GAP = 12;
+const LS_ICON_POSITION = "dsh.tokenHeatmap.iconPosition";
 
 type View = "global" | "session";
 
@@ -31,6 +32,16 @@ function readPosition(): { x: number; y: number } | null {
     if (raw === null) return null;
     const parsed = JSON.parse(raw) as { x: number; y: number };
     if (typeof parsed.x === "number" && typeof parsed.y === "number") return parsed;
+  } catch { /* ignore */ }
+  return null;
+}
+
+function readIconPosition(): IconPosition | null {
+  try {
+    const raw = localStorage.getItem(LS_ICON_POSITION);
+    if (raw === null) return null;
+    const parsed = JSON.parse(raw) as { x: number; y: number };
+    if (typeof parsed.x === "number" && typeof parsed.y === "number") return { x: parsed.x, y: parsed.y };
   } catch { /* ignore */ }
   return null;
 }
@@ -70,6 +81,7 @@ export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote
   const [visible, setVisible] = useState(readVisible);
   const [view, setView] = useState<View>(readView);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(readPosition);
+  const [iconPos, setIconPos] = useState<IconPosition | null>(readIconPosition);
   const [data, setData] = useState<UsagePayload>({ version: -1, days: {} });
   const [backfill, setBackfill] = useState<BackfillStatusPayload | null>(null);
   const [error, setError] = useState(false);
@@ -132,10 +144,14 @@ export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote
     try { localStorage.setItem(LS_VIEW, next); } catch { /* ignore */ }
   }, []);
 
-  const defaultPosition = useCallback(() => ({
-    x: Math.max(8, window.innerWidth - WINDOW_W - WINDOW_OFFSET),
-    y: Math.max(8, window.innerHeight - WINDOW_H - WINDOW_OFFSET),
-  }), []);
+  const defaultPosition = useCallback(() => {
+    // 窗口右下角锚定在图标左上角（间距 WINDOW_ICON_GAP），图标被拖走后窗口默认位置跟随。
+    const iconX = iconPos?.x ?? window.innerWidth - ICON_MARGIN - ICON_SIZE;
+    const iconY = iconPos?.y ?? window.innerHeight - ICON_MARGIN - ICON_SIZE;
+    const x = Math.min(Math.max(8, iconX - WINDOW_W - WINDOW_ICON_GAP), Math.max(8, window.innerWidth - WINDOW_W - 8));
+    const y = Math.min(Math.max(8, iconY - WINDOW_H - WINDOW_ICON_GAP), Math.max(8, window.innerHeight - WINDOW_H - 8));
+    return { x, y };
+  }, [iconPos]);
 
   const onPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const start = positionRef.current ?? defaultPosition();
@@ -163,7 +179,18 @@ export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote
 
   return (
     <>
-      <ToggleIcon level={levelOf(todayTotal)} todayTokens={todayTotal} onClick={toggle} />
+      <ToggleIcon
+        level={levelOf(todayTotal)}
+        todayTokens={todayTotal}
+        onClick={toggle}
+        position={iconPos}
+        onPositionChange={(pos, committed) => {
+          setIconPos(pos);
+          if (committed) {
+            try { localStorage.setItem(LS_ICON_POSITION, JSON.stringify(pos)); } catch { /* ignore */ }
+          }
+        }}
+      />
       {visible && (
         <div style={{ ...windowStyle, left: winPos.x, top: winPos.y }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

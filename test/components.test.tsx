@@ -45,6 +45,20 @@ describe("ToggleIcon", () => {
     fireEvent.click(button);
     expect(onClick).toHaveBeenCalledTimes(1);
   });
+
+  it("reports drag movement and commits on release", () => {
+    const onPositionChange = vi.fn();
+    // 显式起始位置 (0,0)：拖动位移即位置增量（视口 1024x768，40px 图标，clamp 不触发）
+    render(<ToggleIcon level={0} todayTokens={0} onClick={vi.fn()} position={{ x: 0, y: 0 }} onPositionChange={onPositionChange} />);
+    const icon = screen.getByTestId("toggle-icon");
+    fireEvent.pointerDown(icon, { clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(window, { clientX: 160, clientY: 130 });
+    expect(onPositionChange).toHaveBeenLastCalledWith({ x: 160, y: 130 }, false);
+    fireEvent.pointerMove(window, { clientX: 200, clientY: 170 });
+    expect(onPositionChange).toHaveBeenLastCalledWith({ x: 200, y: 170 }, false);
+    fireEvent.pointerUp(window, { clientX: 200, clientY: 170 });
+    expect(onPositionChange).toHaveBeenLastCalledWith({ x: 200, y: 170 }, true);
+  });
 });
 
 describe("HeatmapGrid formatting", () => {
@@ -61,5 +75,17 @@ describe("HeatmapGrid formatting", () => {
     expect((scroller as HTMLElement).style.scrollbarWidth).toBe("none");
     // webkit 滚动条隐藏规则（jsdom 不解析 maskImage 内联样式，渐变遮罩为真实浏览器行为）
     expect(container.querySelector("style")?.textContent).toContain("-webkit-scrollbar");
+  });
+
+  it("shows day tooltip on hover with totals", () => {
+    render(<HeatmapGrid days={days} endKey="2026-08-25" />);
+    const cell = document.querySelector('[data-day="2026-08-25"]');
+    expect(cell).toBeTruthy();
+    fireEvent.mouseEnter(cell as Element);
+    const tooltip = screen.getByTestId("cell-tooltip");
+    expect(tooltip.textContent).toContain("2026-08-25");
+    expect(tooltip.textContent).toContain("100"); // 当日 total（K/M 无变化）
+    fireEvent.mouseLeave(cell as Element);
+    expect(screen.queryByTestId("cell-tooltip")).toBeNull();
   });
 });
