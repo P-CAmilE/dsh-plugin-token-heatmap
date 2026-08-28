@@ -56,7 +56,9 @@ export function sumRange(days: DailyUsageMap, fromKey: string, toKey: string): n
   return sum;
 }
 
-/** 千分位格式化。 */
+/** 紧凑格式化：≥1000 用 K、≥1000000 用 M，换算后小数直接截断（不四舍五入）。 */
 export function formatTokens(n: number): string {
-  return n.toLocaleString("en-US");
+  if (n >= 1_000_000) return Math.floor(n / 1_000_000) + "M";
+  if (n >= 1_000) return Math.floor(n / 1_000) + "K";
+  return String(Math.floor(n));
 }

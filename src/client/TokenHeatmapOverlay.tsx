@@ -4,15 +4,20 @@ import { dayKeyOf } from "../day.ts"; // [controller fix]
 import type { DailyUsageMap } from "../usage.ts"; // [controller fix]
 import { levelsFor } from "./palette.ts";
 import { HeatmapGrid } from "./HeatmapGrid.tsx";
-import { ToggleIcon } from "./ToggleIcon.tsx";
+import { ICON_MARGIN, ICON_SIZE, ToggleIcon } from "./ToggleIcon.tsx";
 import type { BackfillStatusPayload, TokenHeatmapRemote, UsagePayload } from "./remote.ts";
 
 const LS_VISIBLE = "dsh.tokenHeatmap.visible";
 const LS_POSITION = "dsh.tokenHeatmap.position";
 const LS_VIEW = "dsh.tokenHeatmap.view";
 const POLL_MS = 3000;
+/** 失败重试退避：起始与上限。 */
+const RETRY_MIN_MS = 300;
+const RETRY_MAX_MS = 10000;
 const WINDOW_W = 190;
 const WINDOW_H = 220;
+/** 窗口默认弹出位置相对右下角图标的偏移（左右/上下对称）。 */
+const WINDOW_OFFSET = ICON_MARGIN + ICON_SIZE + 12;
 
 type View = "global" | "session";
 
@@ -68,6 +73,7 @@ export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote
   const [data, setData] = useState<UsagePayload>({ version: -1, days: {} });
   const [backfill, setBackfill] = useState<BackfillStatusPayload | null>(null);
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [currentId, setCurrentId] = useState<string | undefined>(() => sessions.list.getSnapshot().current);
   const positionRef = useRef(position);
   positionRef.current = position;
@@ -76,44 +82,42 @@ export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote
     return sessions.list.subscribe(() => setCurrentId(sessions.list.getSnapshot().current));
   }, [sessions]);
 
-  // 可见时轮询（全局或当前会话）；隐藏即停。
+  // 可见时轮询（全局或当前会话 + 回填状态合并）；隐藏即停；失败指数退避重试。
   useEffect(() => {
     if (!visible) return;
     let cancelled = false;
-    const tick = async () => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let delay = 0; // 0 = 立即首拉
+    const schedule = () => { timer = setTimeout(run, delay); };
+    const run = async () => {
+      if (cancelled) return;
       try {
-        const payload = view === "global" ? await api.getGlobalUsage() : currentId !== undefined ? await api.getSessionUsage(currentId) : { version: -1, days: {} };
-        if (!cancelled) {
-          setData((previous) => (previous.version === payload.version ? previous : payload));
-          setError(false);
-        }
-      } catch {
-        if (!cancelled) setError(true);
+        const [payload, status] = await Promise.all([
+          view === "global" ? api.getGlobalUsage() : currentId !== undefined ? api.getSessionUsage(currentId) : Promise.resolve({ version: -1, days: {} }),
+          api.getBackfillStatus(),
+        ]);
+        if (cancelled) return;
+        setData((previous) => (previous.version === payload.version ? previous : payload));
+        setBackfill(status);
+        setError(false);
+        setLoading(false);
+        delay = POLL_MS;
+      } catch (err) {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn("[token-heatmap] poll failed:", message);
+        setError(true);
+        setLoading(false);
+        delay = Math.min(Math.max(delay * 2, RETRY_MIN_MS), RETRY_MAX_MS);
       }
+      if (!cancelled) schedule();
     };
-    void tick();
-    const timer = setInterval(tick, POLL_MS);
+    schedule();
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      if (timer !== null) clearTimeout(timer);
     };
   }, [visible, view, currentId, api]);
-
-  // 回填状态（打开窗口时拉取，直到 done 为止）。
-  useEffect(() => {
-    if (!visible) return;
-    let cancelled = false;
-    const tick = async () => {
-      try {
-        const status = await api.getBackfillStatus();
-        if (!cancelled) setBackfill(status);
-      } catch { /* 忽略 */ }
-    };
-    void tick();
-    return () => {
-      cancelled = true;
-    };
-  }, [visible, api]);
 
   const toggle = useCallback(() => {
     setVisible((v) => {
@@ -129,8 +133,8 @@ export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote
   }, []);
 
   const defaultPosition = useCallback(() => ({
-    x: Math.max(8, window.innerWidth - WINDOW_W - 76),
-    y: Math.max(8, window.innerHeight - WINDOW_H - 68),
+    x: Math.max(8, window.innerWidth - WINDOW_W - WINDOW_OFFSET),
+    y: Math.max(8, window.innerHeight - WINDOW_H - WINDOW_OFFSET),
   }), []);
 
   const onPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
@@ -174,15 +178,16 @@ export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote
             {error ? (
               <div style={{ padding: 12, fontSize: 12, color: "var(--dsw-alias-label-secondary)" }}>
                 <span>数据加载失败</span>
-                <button type="button" style={viewButtonStyle} onClick={() => setError(false)}>重试</button>
+                <button type="button" style={viewButtonStyle} onClick={() => { setError(false); setLoading(true); }}>重试</button>
               </div>
+            ) : loading ? (
+              <div style={{ padding: 12, fontSize: 12, color: "var(--dsw-alias-label-secondary)" }}>数据加载中…</div>
             ) : view === "session" && currentId === undefined ? (
               <div style={{ padding: 12, fontSize: 12, color: "var(--dsw-alias-label-secondary)" }}>当前没有打开的会话</div>
+            ) : Object.keys(days).length === 0 && backfill !== null && !backfill.done ? (
+              <div style={{ padding: 12, fontSize: 12, color: "var(--dsw-alias-label-secondary)" }}>正在回填历史数据…</div>
             ) : (
               <HeatmapGrid days={days} />
-            )}
-            {backfill !== null && !backfill.done && (
-              <div style={{ fontSize: 11, color: "var(--dsw-alias-label-tertiary)" }}>正在回填历史…</div>
             )}
             {backfill !== null && backfill.done && backfill.skipped > 0 && (
               <div style={{ fontSize: 11, color: "var(--dsw-alias-label-tertiary)" }}>回填完成，跳过 {backfill.skipped} 条记录</div>

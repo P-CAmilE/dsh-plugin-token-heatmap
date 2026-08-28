@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildWeeks, monthLabels, sumRange } from "../src/client/grid.ts";
+import { buildWeeks, formatTokens, monthLabels, sumRange } from "../src/client/grid.ts";
 
 test("buildWeeks: 53 weeks, newest first, Monday-start rows", () => {
   const weeks = buildWeeks("2026-08-25"); // 2026-08-25 是周二
@@ -33,4 +33,15 @@ test("sumRange sums totals within inclusive key bounds", () => {
   };
   assert.equal(sumRange(days, "2026-08-24", "2026-08-25"), 30);
   assert.equal(sumRange(days, "2026-08-24", "2026-08-26"), 60);
+});
+
+test("formatTokens uses K/M suffixes with floor truncation", () => {
+  assert.equal(formatTokens(0), "0");
+  assert.equal(formatTokens(999), "999");
+  assert.equal(formatTokens(1000), "1K");
+  assert.equal(formatTokens(123456), "123K");
+  assert.equal(formatTokens(999999), "999K");
+  assert.equal(formatTokens(1000000), "1M");
+  assert.equal(formatTokens(1234567), "1M");
+  assert.equal(formatTokens(1999999), "1M");
 });

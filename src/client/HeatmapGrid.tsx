@@ -22,7 +22,14 @@ const style = {
     color: "var(--dsw-alias-label-primary)",
     fontSize: 12,
   } as CSSProperties,
-  scroll: { overflowY: "auto", maxHeight: 5 * STEP + 2 } as CSSProperties,
+  scroll: {
+    overflowY: "auto",
+    maxHeight: 5 * STEP + 2,
+    scrollbarWidth: "none",
+    msOverflowStyle: "none",
+    maskImage: "linear-gradient(to bottom, transparent 0, black 10px, black calc(100% - 10px), transparent 100%)",
+    WebkitMaskImage: "linear-gradient(to bottom, transparent 0, black 10px, black calc(100% - 10px), transparent 100%)",
+  } as CSSProperties,
   row: { display: "flex", alignItems: "center", gap: GAP, height: CELL } as CSSProperties,
   label: { width: 30, flex: "0 0 30px", fontSize: 10, color: "var(--dsw-alias-label-tertiary)", textAlign: "right", paddingRight: 4 } as CSSProperties,
   cell: { width: CELL, height: CELL, borderRadius: 3 } as CSSProperties,
@@ -58,7 +65,8 @@ export function HeatmapGrid({ days, endKey }: { days: DailyUsageMap; endKey?: st
           <div key={w} style={{ width: CELL, textAlign: "center", fontSize: 10, color: "var(--dsw-alias-label-tertiary)" }}>{w}</div>
         ))}
       </div>
-      <div style={style.scroll}>
+      <style>{`[data-th-scroll]::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }`}</style>
+      <div style={style.scroll} data-th-scroll>
         {weeks.map((week, i) => (
           <div key={week[0].key} data-testid="week-row" style={style.row}>
             <div style={style.label}>{labels[i] ?? ""}</div>

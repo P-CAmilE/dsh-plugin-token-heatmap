@@ -2,12 +2,16 @@ import type { CSSProperties } from "react";
 import { formatTokens } from "./grid.ts";
 import { LEVEL_COLORS, type Level } from "./palette.ts";
 
+/** 图标尺寸与四周边距：与窗口默认弹出位置的偏移共用同一组常量，保证右下角视觉对称。 */
+export const ICON_SIZE = 40;
+export const ICON_MARGIN = 28;
+
 const iconStyle: CSSProperties = {
   position: "fixed",
-  right: 20,
-  bottom: 20,
-  width: 40,
-  height: 40,
+  right: ICON_MARGIN,
+  bottom: ICON_MARGIN,
+  width: ICON_SIZE,
+  height: ICON_SIZE,
   borderRadius: 10,
   border: "none",
   cursor: "pointer",

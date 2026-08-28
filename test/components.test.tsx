@@ -46,3 +46,20 @@ describe("ToggleIcon", () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("HeatmapGrid formatting", () => {
+  it("formats large totals with K/M suffix", () => {
+    const big = { "2026-08-25": { total: 2500000, input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } };
+    render(<HeatmapGrid days={big} endKey="2026-08-25" />);
+    expect(screen.getByTestId("sum-today").textContent).toBe("2M");
+  });
+
+  it("hides scrollbar on the week list", () => {
+    const { container } = render(<HeatmapGrid days={{}} endKey="2026-08-25" />);
+    const scroller = container.querySelector("[data-th-scroll]");
+    expect(scroller).toBeTruthy();
+    expect((scroller as HTMLElement).style.scrollbarWidth).toBe("none");
+    // webkit 滚动条隐藏规则（jsdom 不解析 maskImage 内联样式，渐变遮罩为真实浏览器行为）
+    expect(container.querySelector("style")?.textContent).toContain("-webkit-scrollbar");
+  });
+});
