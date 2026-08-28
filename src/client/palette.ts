@@ -9,6 +9,19 @@ export const LEVEL_COLORS = [
 
 export type Level = 0 | 1 | 2 | 3 | 4;
 
+/** 图标字形颜色：底色越浅字形越深，保证柱状图形在 5 档底色上都可见。 */
+const GLYPH_COLORS = [
+  "var(--dsw-alias-label-primary)", // L0 骨架底色随主题反转 → 字形跟主题文字色
+  "#25407A", // L1 浅蓝 → 深蓝灰
+  "#25407A", // L2 → 深蓝灰（白色对比不足）
+  "rgba(255,255,255,0.95)", // L3
+  "rgba(255,255,255,0.95)", // L4
+] as const;
+
+export function glyphColorFor(level: Level): string {
+  return GLYPH_COLORS[level];
+}
+
 /**
  * 按非零日数值的四分位把单日总量映射到 1..4 档（0 为 L0）。
  * 分位边界值归入较高档；数据无差异（q25 === q75）时非零值统一归 3 档。

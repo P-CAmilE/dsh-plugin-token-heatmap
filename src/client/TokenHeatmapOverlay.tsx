@@ -14,8 +14,8 @@ const POLL_MS = 3000;
 /** 失败重试退避：起始与上限。 */
 const RETRY_MIN_MS = 300;
 const RETRY_MAX_MS = 10000;
-const WINDOW_W = 190;
-const WINDOW_H = 220;
+const WINDOW_W = 300;
+const WINDOW_H = 252;
 /** 窗口默认弹出位置与图标之间的间距。 */
 const WINDOW_ICON_GAP = 12;
 const LS_ICON_POSITION = "dsh.tokenHeatmap.iconPosition";
@@ -61,20 +61,79 @@ const headerStyle: CSSProperties = {
   fontWeight: 600,
 };
 
+// 窗口自带面板外壳：所有内容态（网格/加载/错误/空态/回填提示）都在同一面板内渲染。
 const windowStyle: CSSProperties = {
   position: "fixed",
   width: WINDOW_W,
   zIndex: 9990,
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+  padding: 12,
+  background: "var(--dsw-alias-bg-overlay)",
+  border: "1px solid var(--dsw-alias-border-l)",
+  borderRadius: 12,
+  boxShadow: "0 8px 24px rgba(0,0,0,0.16)",
+  color: "var(--dsw-alias-label-primary)",
+  fontSize: 12,
 };
 
-const viewButtonStyle: CSSProperties = {
+// 显隐动画：窗口常驻挂载，仅切换透明度/位移/可见性（隐藏态对无障碍树与指针事件不可见）。
+const windowShownStyle: CSSProperties = {
+  opacity: 1,
+  transform: "none",
+  visibility: "visible",
+  pointerEvents: "auto",
+  transition: "opacity 160ms ease, transform 160ms ease, visibility 0s",
+};
+
+const windowHiddenStyle: CSSProperties = {
+  opacity: 0,
+  transform: "translateY(6px) scale(0.96)",
+  visibility: "hidden",
+  pointerEvents: "none",
+  transition: "opacity 160ms ease, transform 160ms ease, visibility 0s linear 160ms",
+};
+
+const segmentedStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 2,
+  border: "1px solid var(--dsw-alias-border-l)",
+  borderRadius: 8,
+  padding: 2,
+};
+
+function segButtonStyle(active: boolean): CSSProperties {
+  return {
+    border: "none",
+    background: active ? "var(--dsw-alias-bg-skeleton)" : "transparent",
+    color: active ? "var(--dsw-alias-label-primary)" : "var(--dsw-alias-label-secondary)",
+    fontWeight: active ? 700 : 400,
+    borderRadius: 6,
+    padding: "2px 8px",
+    fontSize: 11,
+    cursor: "pointer",
+  };
+}
+
+const retryButtonStyle: CSSProperties = {
   border: "1px solid var(--dsw-alias-border-l)",
   background: "transparent",
   color: "var(--dsw-alias-label-secondary)",
-  borderRadius: 6,
-  padding: "2px 6px",
+  borderRadius: 999,
+  padding: "2px 10px",
   fontSize: 11,
   cursor: "pointer",
+};
+
+const stateStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "4px 2px",
+  fontSize: 12,
+  color: "var(--dsw-alias-label-secondary)",
 };
 
 export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote; sessions: SessionRuntime }) {
@@ -188,6 +247,7 @@ export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote
 
   return (
     <>
+      <style>{`@media (prefers-reduced-motion: reduce) { [data-th-window] { transition: none !important; } }`}</style>
       <ToggleIcon
         level={levelOf(todayTotal)}
         todayTokens={todayTotal}
@@ -203,36 +263,35 @@ export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote
           }
         }}
       />
-      {visible && (
-        <div style={{ ...windowStyle, left: winPos.x, top: winPos.y }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={headerStyle} onPointerDown={onPointerDown}>
-              <span>Token 热力图</span>
-              <div style={{ display: "flex", gap: 4 }}>
-                <button type="button" style={{ ...viewButtonStyle, fontWeight: view === "global" ? 700 : 400 }} onClick={() => switchView("global")}>全局</button>
-                <button type="button" style={{ ...viewButtonStyle, fontWeight: view === "session" ? 700 : 400 }} onClick={() => switchView("session")}>会话</button>
-              </div>
-            </div>
-            {error ? (
-              <div style={{ padding: 12, fontSize: 12, color: "var(--dsw-alias-label-secondary)" }}>
-                <span>数据加载失败</span>
-                <button type="button" style={viewButtonStyle} onClick={() => { setError(false); setLoading(true); }}>重试</button>
-              </div>
-            ) : loading ? (
-              <div style={{ padding: 12, fontSize: 12, color: "var(--dsw-alias-label-secondary)" }}>数据加载中…</div>
-            ) : view === "session" && currentId === undefined ? (
-              <div style={{ padding: 12, fontSize: 12, color: "var(--dsw-alias-label-secondary)" }}>当前没有打开的会话</div>
-            ) : Object.keys(days).length === 0 && backfill !== null && !backfill.done ? (
-              <div style={{ padding: 12, fontSize: 12, color: "var(--dsw-alias-label-secondary)" }}>正在回填历史数据…</div>
-            ) : (
-              <HeatmapGrid days={days} />
-            )}
-            {backfill !== null && backfill.done && backfill.skipped > 0 && (
-              <div style={{ fontSize: 11, color: "var(--dsw-alias-label-tertiary)" }}>回填完成，跳过 {backfill.skipped} 条记录</div>
-            )}
+      <div
+        data-th-window
+        style={{ ...windowStyle, left: winPos.x, top: winPos.y, ...(visible ? windowShownStyle : windowHiddenStyle) }}
+      >
+        <div style={headerStyle} onPointerDown={onPointerDown}>
+          <span>Token 热力图</span>
+          <div style={segmentedStyle}>
+            <button type="button" style={segButtonStyle(view === "global")} aria-pressed={view === "global"} onClick={() => switchView("global")}>全局</button>
+            <button type="button" style={segButtonStyle(view === "session")} aria-pressed={view === "session"} onClick={() => switchView("session")}>会话</button>
           </div>
         </div>
-      )}
+        {error ? (
+          <div style={stateStyle}>
+            <span>数据加载失败</span>
+            <button type="button" style={retryButtonStyle} onClick={() => { setError(false); setLoading(true); }}>重试</button>
+          </div>
+        ) : loading ? (
+          <div style={stateStyle}>数据加载中…</div>
+        ) : view === "session" && currentId === undefined ? (
+          <div style={stateStyle}>当前没有打开的会话</div>
+        ) : Object.keys(days).length === 0 && backfill !== null && !backfill.done ? (
+          <div style={stateStyle}>正在回填历史数据…</div>
+        ) : (
+          <HeatmapGrid days={days} />
+        )}
+        {backfill !== null && backfill.done && backfill.skipped > 0 && (
+          <div style={{ fontSize: 11, color: "var(--dsw-alias-label-tertiary)" }}>回填完成，跳过 {backfill.skipped} 条记录</div>
+        )}
+      </div>
     </>
   );
 }

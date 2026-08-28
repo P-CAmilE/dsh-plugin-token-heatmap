@@ -20,18 +20,21 @@ interface CellHover {
   y: number;
 }
 
+// 面板外壳（底色/边框/圆角/阴影/内边距）由悬浮窗（TokenHeatmapOverlay）持有，
+// 本组件只负责内容排版，使加载/错误/空态也能出现在同一面板里。
 const style = {
-  panel: {
+  root: {
     display: "flex",
     flexDirection: "column",
-    gap: 6,
-    padding: 12,
-    background: "var(--dsw-alias-bg-overlay)",
-    border: "1px solid var(--dsw-alias-border-l)",
-    borderRadius: 12,
-    boxShadow: "0 8px 24px rgba(0,0,0,0.16)",
-    color: "var(--dsw-alias-label-primary)",
+    gap: 8,
     fontSize: 12,
+  } as CSSProperties,
+  gridBlock: {
+    display: "flex",
+    flexDirection: "column",
+    gap: GAP,
+    alignSelf: "center",
+    position: "relative",
   } as CSSProperties,
   scroll: {
     overflowY: "auto",
@@ -46,8 +49,22 @@ const style = {
   label: { width: 30, flex: "0 0 30px", fontSize: 10, color: "var(--dsw-alias-label-tertiary)", textAlign: "right", paddingRight: 4 } as CSSProperties,
   cell: { width: CELL, height: CELL, borderRadius: 3, transformOrigin: "center" } as CSSProperties,
   header: { display: "flex", alignItems: "center", gap: GAP } as CSSProperties,
-  summary: { display: "flex", gap: 10, fontSize: 11, color: "var(--dsw-alias-label-secondary)" } as CSSProperties,
+  footerRow: { display: "flex", alignItems: "baseline", gap: 10, fontSize: 11, color: "var(--dsw-alias-label-secondary)" } as CSSProperties,
+  footerBottom: { display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, color: "var(--dsw-alias-label-secondary)" } as CSSProperties,
   legend: { display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--dsw-alias-label-tertiary)" } as CSSProperties,
+  chip: {
+    position: "absolute",
+    right: 0,
+    bottom: 6,
+    border: "1px solid var(--dsw-alias-border-l)",
+    background: "var(--dsw-alias-bg-overlay)",
+    color: "var(--dsw-alias-label-secondary)",
+    borderRadius: 999,
+    padding: "3px 10px",
+    fontSize: 10,
+    cursor: "pointer",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+  } as CSSProperties,
 };
 
 /** 边缘渐隐只在中间滚动位置出现：到顶时顶部无遮罩，到底时底部无遮罩，未溢出则完全无遮罩。 */
@@ -81,6 +98,13 @@ export function HeatmapGrid({ days, endKey }: { days: DailyUsageMap; endKey?: st
     return () => el?.removeEventListener("scroll", updateMask);
   }, [updateMask]);
 
+  const backToLatest = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (typeof el.scrollTo === "function") el.scrollTo({ top: 0, behavior: "smooth" });
+    else el.scrollTop = 0;
+  }, []);
+
   const endTime = parseDayKey(end);
   const todayKey = dayKeyOf(endTime);
   const weekMonday = endTime - (isoWeekday(endTime) - 1) * DAY_MS;
@@ -97,44 +121,57 @@ export function HeatmapGrid({ days, endKey }: { days: DailyUsageMap; endKey?: st
   const maskImage = maskOf(edgeMask.top, edgeMask.bottom);
 
   return (
-    <div style={style.panel}>
+    <div style={style.root}>
       <style>{`
         [data-th-scroll]::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
         [data-th-cell] { transition: transform 120ms ease-out; transform-origin: center; }
         [data-th-cell]:hover { transform: scale(1.4); }
       `}</style>
-      <div style={style.header}>
-        <div style={{ ...style.label, visibility: "hidden" }}>x</div>
-        {WEEKDAYS.map((w) => (
-          <div key={w} style={{ width: CELL, textAlign: "center", fontSize: 10, color: "var(--dsw-alias-label-tertiary)" }}>{w}</div>
-        ))}
+      <div style={style.gridBlock}>
+        <div style={style.header}>
+          <div style={{ ...style.label, visibility: "hidden" }}>x</div>
+          {WEEKDAYS.map((w) => (
+            <div key={w} style={{ width: CELL, textAlign: "center", fontSize: 10, color: "var(--dsw-alias-label-tertiary)" }}>{w}</div>
+          ))}
+        </div>
+        <div
+          ref={scrollRef}
+          data-th-scroll
+          style={{ ...style.scroll, maskImage, WebkitMaskImage: maskImage }}
+        >
+          {weeks.map((week, i) => (
+            <div key={week[0].key} data-testid="week-row" style={style.row}>
+              <div style={style.label}>{labels[i] ?? ""}</div>
+              {week.map((cell) => (
+                <DayCell key={cell.key} cell={cell} days={days} levelOf={levelOf} onHover={setHover} />
+              ))}
+            </div>
+          ))}
+        </div>
+        {edgeMask.top && (
+          <button type="button" data-testid="back-to-latest" style={style.chip} onClick={backToLatest}>
+            回到最新
+          </button>
+        )}
       </div>
-      <div
-        ref={scrollRef}
-        data-th-scroll
-        style={{ ...style.scroll, maskImage, WebkitMaskImage: maskImage }}
-      >
-        {weeks.map((week, i) => (
-          <div key={week[0].key} data-testid="week-row" style={style.row}>
-            <div style={style.label}>{labels[i] ?? ""}</div>
-            {week.map((cell) => (
-              <DayCell key={cell.key} cell={cell} days={days} levelOf={levelOf} onHover={setHover} />
-            ))}
-          </div>
-        ))}
-      </div>
-      <div style={style.summary}>
-        <span data-testid="sum-today">{formatTokens(totals.today)}</span>
+      <div style={style.footerRow}>
+        <span>
+          今日 <span data-testid="sum-today" style={{ color: "var(--dsw-alias-label-primary)", fontWeight: 600 }}>{formatTokens(totals.today)}</span>
+        </span>
+        <span style={{ color: "var(--dsw-alias-label-tertiary)" }}>·</span>
         <span>本周 {formatTokens(totals.week)}</span>
+        <span style={{ color: "var(--dsw-alias-label-tertiary)" }}>·</span>
         <span>本月 {formatTokens(totals.month)}</span>
-        <span>12 个月 {formatTokens(totals.year)}</span>
       </div>
-      <div data-testid="legend" style={style.legend}>
-        <span>少</span>
-        {LEVEL_COLORS.map((color) => (
-          <span key={color} style={{ width: 10, height: 10, borderRadius: 2, background: color, display: "inline-block" }} />
-        ))}
-        <span>多</span>
+      <div style={style.footerBottom}>
+        <span>12 个月 {formatTokens(totals.year)}</span>
+        <div data-testid="legend" style={style.legend}>
+          <span>少</span>
+          {LEVEL_COLORS.map((color) => (
+            <span key={color} style={{ width: 10, height: 10, borderRadius: 2, background: color, display: "inline-block" }} />
+          ))}
+          <span>多</span>
+        </div>
       </div>
       {hover !== null && (
         <div
@@ -142,7 +179,7 @@ export function HeatmapGrid({ days, endKey }: { days: DailyUsageMap; endKey?: st
           style={{
             position: "fixed",
             left: Math.min(hover.x + 12, Math.max(8, window.innerWidth - 220)),
-            top: Math.max(8, hover.y - 66),
+            top: Math.min(Math.max(8, hover.y - 66), Math.max(8, window.innerHeight - 80)),
             zIndex: 9999,
             pointerEvents: "none",
             background: "var(--dsw-alias-bg-overlay)",

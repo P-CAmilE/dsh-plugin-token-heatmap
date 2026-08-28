@@ -69,6 +69,15 @@ describe("HeatmapGrid formatting", () => {
     expect(screen.getByTestId("sum-today").textContent).toBe("2M");
   });
 
+  it("labels footer totals and hides back-to-latest while at top", () => {
+    // 2026-08-24 为周一：本周 = 08-24(10) + 08-25(100) = 110；本月/12 个月同窗口亦 110
+    render(<HeatmapGrid days={days} endKey="2026-08-25" />);
+    expect(screen.getByText("本周 110")).toBeTruthy();
+    expect(screen.getByText("本月 110")).toBeTruthy();
+    expect(screen.getByText("12 个月 110")).toBeTruthy();
+    expect(screen.queryByTestId("back-to-latest")).toBeNull();
+  });
+
   it("hides scrollbar on the week list", () => {
     const { container } = render(<HeatmapGrid days={{}} endKey="2026-08-25" />);
     const scroller = container.querySelector("[data-th-scroll]");
