@@ -52,12 +52,13 @@ describe("ToggleIcon", () => {
     render(<ToggleIcon level={0} todayTokens={0} onClick={vi.fn()} position={{ x: 0, y: 0 }} onPositionChange={onPositionChange} />);
     const icon = screen.getByTestId("toggle-icon");
     fireEvent.pointerDown(icon, { clientX: 100, clientY: 100 });
+    // 起始位置 (0,0)，起点指针 (100,100)：移动量即新位置
     fireEvent.pointerMove(window, { clientX: 160, clientY: 130 });
-    expect(onPositionChange).toHaveBeenLastCalledWith({ x: 160, y: 130 }, false);
+    expect(onPositionChange).toHaveBeenLastCalledWith({ x: 60, y: 30 }, false);
     fireEvent.pointerMove(window, { clientX: 200, clientY: 170 });
-    expect(onPositionChange).toHaveBeenLastCalledWith({ x: 200, y: 170 }, false);
+    expect(onPositionChange).toHaveBeenLastCalledWith({ x: 100, y: 70 }, false);
     fireEvent.pointerUp(window, { clientX: 200, clientY: 170 });
-    expect(onPositionChange).toHaveBeenLastCalledWith({ x: 200, y: 170 }, true);
+    expect(onPositionChange).toHaveBeenLastCalledWith({ x: 100, y: 70 }, true);
   });
 });
 
