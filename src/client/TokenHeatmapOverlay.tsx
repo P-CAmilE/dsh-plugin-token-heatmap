@@ -14,8 +14,8 @@ const POLL_MS = 3000;
 /** 失败重试退避：起始与上限。 */
 const RETRY_MIN_MS = 300;
 const RETRY_MAX_MS = 10000;
-const WINDOW_W = 234; // 测量前/兑底宽度；实际宽度由内容决定（max-content），测量后用于对齐
-const WINDOW_H = 224;
+const WINDOW_W = 232; // 测量前/兑底宽度；实际宽度由内容决定（max-content）+ 只增不减冻结
+const WINDOW_H = 220;
 /** 窗口默认弹出位置与图标之间的间距。 */
 const WINDOW_ICON_GAP = 16;
 const LS_ICON_POSITION = "dsh.tokenHeatmap.iconPosition";
@@ -151,7 +151,8 @@ export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote
   const [currentId, setCurrentId] = useState<string | undefined>(() => sessions.list.getSnapshot().current);
   const positionRef = useRef(position);
   positionRef.current = position;
-  // max-content 宽度随内容（合计数字）变化：测量实际宽度用于窗口与图标的水平居中对齐。
+  // max-content 宽度由内容决定（数值列固定 ch 宽 → 各视图/数字位数下窗口宽度稳定）；
+  // 实测宽度仅用于窗口与图标水平居中（只影响位置，不回写尺寸，无反馈回路）。
   const windowRef = useRef<HTMLDivElement>(null);
   const [windowWidth, setWindowWidth] = useState<number | null>(null);
   useLayoutEffect(() => {

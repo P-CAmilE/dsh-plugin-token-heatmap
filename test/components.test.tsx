@@ -70,11 +70,17 @@ describe("HeatmapGrid formatting", () => {
   });
 
   it("labels footer totals and hides back-to-latest while at top", () => {
-    // 2026-08-24 为周一：本周 = 08-24(10) + 08-25(100) = 110；本月/12 个月同窗口亦 110
+    // 2026-08-24 为周一：本周 = 08-24(10) + 08-25(100) = 110；本月/12个月同窗口亦 110
     render(<HeatmapGrid days={days} endKey="2026-08-25" />);
-    expect(screen.getByText("本周 110")).toBeTruthy();
-    expect(screen.getByText("本月 110")).toBeTruthy();
-    expect(screen.getByText("12 个月 110")).toBeTruthy();
+    const summaryText = screen.getByTestId("summary").textContent ?? "";
+    expect(summaryText).toContain("本周 110");
+    expect(summaryText).toContain("本月 110");
+    expect(summaryText).toContain("12个月 110");
+    // 汇总两行两列：无中点分隔符，列轨道跨行共享（上下对齐）
+    const summary = screen.getByTestId("summary");
+    expect(summary.style.gridTemplateColumns).toBe("max-content max-content");
+    expect(summary.style.columnGap).toBe("12px");
+    expect(screen.queryAllByText("·").length).toBe(0);
     // 图例两行：色块行在上，少/多标注行在下
     expect(screen.getByText("少")).toBeTruthy();
     expect(screen.getByText("多")).toBeTruthy();
@@ -162,4 +168,3 @@ describe("TokenHeatmapOverlay", () => {
     });
   });
 });
-

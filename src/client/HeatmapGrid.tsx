@@ -29,11 +29,14 @@ const style = {
     gap: 8,
     fontSize: 12,
   } as CSSProperties,
+  // 网格块拉伸到窗口内容宽（minWidth 保证月份标签有地儿放），格子组在其内精确居中：
+  // 月份标签绝对定位在行左缘，脱离流，不再把格子整体推右。
   gridBlock: {
     display: "flex",
     flexDirection: "column",
     gap: GAP,
-    alignSelf: "center",
+    alignSelf: "stretch",
+    minWidth: 208,
     position: "relative",
   } as CSSProperties,
   scroll: {
@@ -48,15 +51,15 @@ const style = {
     scrollbarWidth: "none",
     msOverflowStyle: "none",
   } as CSSProperties,
-  row: { display: "flex", alignItems: "center", gap: GAP, height: CELL } as CSSProperties,
+  row: { display: "flex", alignItems: "center", gap: GAP, height: CELL, justifyContent: "center", position: "relative" } as CSSProperties,
   label: { width: 30, flex: "0 0 30px", fontSize: 10, color: "var(--dsw-alias-label-tertiary)", textAlign: "right", paddingRight: 4 } as CSSProperties,
   cell: { width: CELL, height: CELL, borderRadius: 3, transformOrigin: "center" } as CSSProperties,
-  // 与 scroll 的 paddingLeft 对齐，使星期标注与单元格列对齐
-  header: { display: "flex", alignItems: "center", gap: GAP, paddingLeft: 4 } as CSSProperties,
-  footer: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16 } as CSSProperties,
-  summary: { display: "flex", flexDirection: "column", gap: 4, fontSize: 11, color: "var(--dsw-alias-label-secondary)" } as CSSProperties,
-  summaryRow: { display: "flex", alignItems: "baseline", gap: 8 } as CSSProperties,
-  dot: { color: "var(--dsw-alias-label-tertiary)" } as CSSProperties,
+  // 与行同规则：星期标注居中于格子列上方（隐藏占位标签绝对定位，不参与居中计算）
+  header: { display: "flex", alignItems: "center", gap: GAP, justifyContent: "center", position: "relative" } as CSSProperties,
+  footer: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 } as CSSProperties,
+  // 两行两列网格：无中点分隔符，列轨道跨行共享（上下对齐）；
+  // 窗口宽度稳定性由 gridBlock minWidth 208 兑底（footer 自然宽 ≤ 208，不随数字位数变化）。
+  summary: { display: "grid", gridTemplateColumns: "max-content max-content", columnGap: 12, rowGap: 4, fontSize: 11, color: "var(--dsw-alias-label-secondary)" } as CSSProperties,
   legendBlock: { display: "flex", flexDirection: "column", gap: 3 } as CSSProperties,
   swatches: { display: "flex", gap: 3 } as CSSProperties,
   legendLabels: { display: "flex", justifyContent: "space-between", width: 62, fontSize: 10, color: "var(--dsw-alias-label-tertiary)" } as CSSProperties,
@@ -137,7 +140,7 @@ export function HeatmapGrid({ days, endKey }: { days: DailyUsageMap; endKey?: st
       `}</style>
       <div style={style.gridBlock}>
         <div style={style.header}>
-          <div style={{ ...style.label, visibility: "hidden" }}>x</div>
+          <div style={{ ...style.label, visibility: "hidden", position: "absolute", left: 0 }}>x</div>
           {WEEKDAYS.map((w) => (
             <div key={w} style={{ width: CELL, textAlign: "center", fontSize: 10, color: "var(--dsw-alias-label-tertiary)" }}>{w}</div>
           ))}
@@ -149,7 +152,7 @@ export function HeatmapGrid({ days, endKey }: { days: DailyUsageMap; endKey?: st
         >
           {weeks.map((week, i) => (
             <div key={week[0].key} data-testid="week-row" style={style.row}>
-              <div style={style.label}>{labels[i] ?? ""}</div>
+              <div style={{ ...style.label, position: "absolute", left: 0 }}>{labels[i] ?? ""}</div>
               {week.map((cell) => (
                 <DayCell key={cell.key} cell={cell} days={days} levelOf={levelOf} onHover={setHover} />
               ))}
@@ -163,17 +166,11 @@ export function HeatmapGrid({ days, endKey }: { days: DailyUsageMap; endKey?: st
         )}
       </div>
       <div style={style.footer}>
-        <div style={style.summary}>
-          <span style={style.summaryRow}>
-            <span>今日 <span data-testid="sum-today" style={{ color: "var(--dsw-alias-label-primary)", fontWeight: 600 }}>{formatTokens(totals.today)}</span></span>
-            <span style={style.dot}>·</span>
-            <span>本周 {formatTokens(totals.week)}</span>
-          </span>
-          <span style={style.summaryRow}>
-            <span>本月 {formatTokens(totals.month)}</span>
-            <span style={style.dot}>·</span>
-            <span>12 个月 {formatTokens(totals.year)}</span>
-          </span>
+        <div data-testid="summary" style={style.summary}>
+          <span>今日 <span data-testid="sum-today" style={{ color: "var(--dsw-alias-label-primary)", fontWeight: 600 }}>{formatTokens(totals.today)}</span></span>
+          <span>本周 {formatTokens(totals.week)}</span>
+          <span>本月 {formatTokens(totals.month)}</span>
+          <span>12个月 {formatTokens(totals.year)}</span>
         </div>
         <div data-testid="legend" style={style.legendBlock}>
           <div style={style.swatches}>
