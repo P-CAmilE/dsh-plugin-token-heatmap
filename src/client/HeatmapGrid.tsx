@@ -4,7 +4,7 @@ import { buildWeeks, formatTokens, monthLabels, sumRange, type Cell } from "./gr
 import { LEVEL_COLORS, levelsFor, type Level } from "./palette.ts";
 import type { DailyUsageMap } from "../usage.ts"; // [controller fix]
 
-const CELL = 12;
+const CELL = 16;
 const GAP = 4; // 节点上下左右间距一致
 const STEP = CELL + GAP;
 const WEEKDAYS = ["一", "二", "三", "四", "五", "六", "日"];

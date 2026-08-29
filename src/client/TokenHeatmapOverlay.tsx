@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { SessionRuntime } from "@deepseek-ai/dsh-client-runtime/client";
 import { dayKeyOf } from "../day.ts"; // [controller fix]
 import type { DailyUsageMap } from "../usage.ts"; // [controller fix]
@@ -14,10 +14,10 @@ const POLL_MS = 3000;
 /** 失败重试退避：起始与上限。 */
 const RETRY_MIN_MS = 300;
 const RETRY_MAX_MS = 10000;
-const WINDOW_W = 230; // 仅用于弹出位置钳位；实际宽度由内容决定（max-content）
-const WINDOW_H = 200;
+const WINDOW_W = 234; // 测量前/兑底宽度；实际宽度由内容决定（max-content），测量后用于对齐
+const WINDOW_H = 224;
 /** 窗口默认弹出位置与图标之间的间距。 */
-const WINDOW_ICON_GAP = 12;
+const WINDOW_ICON_GAP = 16;
 const LS_ICON_POSITION = "dsh.tokenHeatmap.iconPosition";
 
 type View = "global" | "session";
@@ -151,6 +151,22 @@ export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote
   const [currentId, setCurrentId] = useState<string | undefined>(() => sessions.list.getSnapshot().current);
   const positionRef = useRef(position);
   positionRef.current = position;
+  // max-content 宽度随内容（合计数字）变化：测量实际宽度用于窗口与图标的水平居中对齐。
+  const windowRef = useRef<HTMLDivElement>(null);
+  const [windowWidth, setWindowWidth] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = windowRef.current;
+    if (!el) return;
+    const update = () => {
+      const w = el.offsetWidth;
+      if (w > 0) setWindowWidth(w);
+    };
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     return sessions.list.subscribe(() => setCurrentId(sessions.list.getSnapshot().current));
@@ -211,16 +227,17 @@ export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote
   }, []);
 
   const defaultPosition = useCallback(() => {
-    // 窗口始终位于图标正上方（水平居中）；图标贴近顶部放不下时落到图标下方。
+    // 窗口始终位于图标正上方（水平居中，用实测宽度）；图标贴近顶部放不下时落到图标下方。
+    const width = windowWidth ?? WINDOW_W;
     const iconX = iconPos?.x ?? window.innerWidth - ICON_MARGIN - ICON_SIZE;
     const iconY = iconPos?.y ?? window.innerHeight - ICON_MARGIN - ICON_SIZE;
-    const x = Math.min(Math.max(8, iconX + (ICON_SIZE - WINDOW_W) / 2), Math.max(8, window.innerWidth - WINDOW_W - 8));
+    const x = Math.min(Math.max(8, iconX + (ICON_SIZE - width) / 2), Math.max(8, window.innerWidth - width - 8));
     const above = iconY - WINDOW_H - WINDOW_ICON_GAP;
     const y = above >= 8
       ? above
       : Math.min(Math.max(8, iconY + ICON_SIZE + WINDOW_ICON_GAP), Math.max(8, window.innerHeight - WINDOW_H - 8));
     return { x, y };
-  }, [iconPos]);
+  }, [iconPos, windowWidth]);
 
   const onPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const start = positionRef.current ?? defaultPosition();
@@ -265,6 +282,7 @@ export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote
         }}
       />
       <div
+        ref={windowRef}
         data-th-window
         style={{ ...windowStyle, left: winPos.x, top: winPos.y, ...(visible ? windowShownStyle : windowHiddenStyle) }}
       >

@@ -8,7 +8,10 @@ import { TokenHeatmapService } from "./service.ts";
 import { UsageStore } from "./usage-store.ts";
 
 export const name = "token-heatmap";
-export const inject: string[] = [];
+// sessionPersistence 是回填的数据源：声明为前置服务，cordis 就绪后才 apply。
+// 竞态教训：在 apply 顶层同步 ctx.get 会在服务未装配时拿到 undefined（2026-08-28 线上：
+// 回填扫 0 会话且写入 done 永久跳过，会话/全局视图全零）。
+export const inject = ["sessionPersistence"];
 
 export function apply(ctx: Context): void {
   const dir = dshHomePath("token-heatmap");
