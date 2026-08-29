@@ -41,17 +41,25 @@ const style = {
     display: "flex",
     flexDirection: "column",
     gap: GAP, // 行与行之间的固定间距（此前块级堆叠导致行间距为 0）
-    maxHeight: 5 * STEP - GAP,
+    // 内边距给悬停放大留出空间，避免首末行/左右列的放大被 scrollport 裁剪；
+    // maxHeight 相应加上下 padding，可见行数仍为 5。
+    padding: 4,
+    maxHeight: 5 * STEP - GAP + 8,
     scrollbarWidth: "none",
     msOverflowStyle: "none",
   } as CSSProperties,
   row: { display: "flex", alignItems: "center", gap: GAP, height: CELL } as CSSProperties,
   label: { width: 30, flex: "0 0 30px", fontSize: 10, color: "var(--dsw-alias-label-tertiary)", textAlign: "right", paddingRight: 4 } as CSSProperties,
   cell: { width: CELL, height: CELL, borderRadius: 3, transformOrigin: "center" } as CSSProperties,
-  header: { display: "flex", alignItems: "center", gap: GAP } as CSSProperties,
-  footerRow: { display: "flex", alignItems: "baseline", gap: 10, fontSize: 11, color: "var(--dsw-alias-label-secondary)" } as CSSProperties,
-  footerBottom: { display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, color: "var(--dsw-alias-label-secondary)" } as CSSProperties,
-  legend: { display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--dsw-alias-label-tertiary)" } as CSSProperties,
+  // 与 scroll 的 paddingLeft 对齐，使星期标注与单元格列对齐
+  header: { display: "flex", alignItems: "center", gap: GAP, paddingLeft: 4 } as CSSProperties,
+  footer: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16 } as CSSProperties,
+  summary: { display: "flex", flexDirection: "column", gap: 4, fontSize: 11, color: "var(--dsw-alias-label-secondary)" } as CSSProperties,
+  summaryRow: { display: "flex", alignItems: "baseline", gap: 8 } as CSSProperties,
+  dot: { color: "var(--dsw-alias-label-tertiary)" } as CSSProperties,
+  legendBlock: { display: "flex", flexDirection: "column", gap: 3 } as CSSProperties,
+  swatches: { display: "flex", gap: 3 } as CSSProperties,
+  legendLabels: { display: "flex", justifyContent: "space-between", width: 62, fontSize: 10, color: "var(--dsw-alias-label-tertiary)" } as CSSProperties,
   chip: {
     position: "absolute",
     right: 0,
@@ -125,7 +133,7 @@ export function HeatmapGrid({ days, endKey }: { days: DailyUsageMap; endKey?: st
       <style>{`
         [data-th-scroll]::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
         [data-th-cell] { transition: transform 120ms ease-out; transform-origin: center; }
-        [data-th-cell]:hover { transform: scale(1.4); }
+        [data-th-cell]:hover { transform: scale(1.3); }
       `}</style>
       <div style={style.gridBlock}>
         <div style={style.header}>
@@ -154,23 +162,29 @@ export function HeatmapGrid({ days, endKey }: { days: DailyUsageMap; endKey?: st
           </button>
         )}
       </div>
-      <div style={style.footerRow}>
-        <span>
-          今日 <span data-testid="sum-today" style={{ color: "var(--dsw-alias-label-primary)", fontWeight: 600 }}>{formatTokens(totals.today)}</span>
-        </span>
-        <span style={{ color: "var(--dsw-alias-label-tertiary)" }}>·</span>
-        <span>本周 {formatTokens(totals.week)}</span>
-        <span style={{ color: "var(--dsw-alias-label-tertiary)" }}>·</span>
-        <span>本月 {formatTokens(totals.month)}</span>
-      </div>
-      <div style={style.footerBottom}>
-        <span>12 个月 {formatTokens(totals.year)}</span>
-        <div data-testid="legend" style={style.legend}>
-          <span>少</span>
-          {LEVEL_COLORS.map((color) => (
-            <span key={color} style={{ width: 10, height: 10, borderRadius: 2, background: color, display: "inline-block" }} />
-          ))}
-          <span>多</span>
+      <div style={style.footer}>
+        <div style={style.summary}>
+          <span style={style.summaryRow}>
+            <span>今日 <span data-testid="sum-today" style={{ color: "var(--dsw-alias-label-primary)", fontWeight: 600 }}>{formatTokens(totals.today)}</span></span>
+            <span style={style.dot}>·</span>
+            <span>本周 {formatTokens(totals.week)}</span>
+          </span>
+          <span style={style.summaryRow}>
+            <span>本月 {formatTokens(totals.month)}</span>
+            <span style={style.dot}>·</span>
+            <span>12 个月 {formatTokens(totals.year)}</span>
+          </span>
+        </div>
+        <div data-testid="legend" style={style.legendBlock}>
+          <div style={style.swatches}>
+            {LEVEL_COLORS.map((color) => (
+              <span key={color} style={{ width: 10, height: 10, borderRadius: 2, background: color, display: "inline-block" }} />
+            ))}
+          </div>
+          <div style={style.legendLabels}>
+            <span>少</span>
+            <span>多</span>
+          </div>
         </div>
       </div>
       {hover !== null && (

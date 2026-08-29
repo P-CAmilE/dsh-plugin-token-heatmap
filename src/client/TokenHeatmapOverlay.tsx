@@ -14,8 +14,8 @@ const POLL_MS = 3000;
 /** 失败重试退避：起始与上限。 */
 const RETRY_MIN_MS = 300;
 const RETRY_MAX_MS = 10000;
-const WINDOW_W = 300;
-const WINDOW_H = 252;
+const WINDOW_W = 230; // 仅用于弹出位置钳位；实际宽度由内容决定（max-content）
+const WINDOW_H = 200;
 /** 窗口默认弹出位置与图标之间的间距。 */
 const WINDOW_ICON_GAP = 12;
 const LS_ICON_POSITION = "dsh.tokenHeatmap.iconPosition";
@@ -62,9 +62,10 @@ const headerStyle: CSSProperties = {
 };
 
 // 窗口自带面板外壳：所有内容态（网格/加载/错误/空态/回填提示）都在同一面板内渲染。
+// 宽度 max-content：窗口贴合最宽内容行，避免与热力图范围差距过大。
 const windowStyle: CSSProperties = {
   position: "fixed",
-  width: WINDOW_W,
+  width: "max-content",
   zIndex: 9990,
   display: "flex",
   flexDirection: "column",

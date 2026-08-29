@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { UsageStore } from "../src/usage-store.ts";
+import { BackfillRunner } from "../src/backfill.ts";
 import { dayKeyOf } from "../src/day.ts";
 
 function makeStore(): { store: UsageStore; dir: string } {
@@ -62,4 +63,48 @@ test("pruneSessions removes sessions absent from live set", () => {
   store.pruneSessions(new Set(["alive"]));
   assert.deepEqual(store.snapshotSession("gone"), {});
   assert.equal(store.snapshotSession("alive")[dayKeyOf(Date.now())].total, 2);
+});
+
+test("applyBackfill with already-done runner keeps per-session data (startup wipe regression)", async () => {
+  // 线上 bug：meta.done 时 runner 返回空 scannedIds，启动组合逻辑无条件 pruneSessions
+  // 把 bySession 全部清空，会话视图永远无历史数据。
+  const { store, dir } = makeStore();
+  const today = dayKeyOf(Date.now());
+  store.addUsage("s1", today, 10, 5);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, "meta.json"),
+    JSON.stringify({ done: true, scanned: 23, skipped: 0, startedAt: 1, finishedAt: 2 }),
+    "utf8",
+  );
+  const runner = new BackfillRunner(dir, { async list() { throw new Error("must not run"); } } as never);
+  store.applyBackfill(await runner.run());
+  assert.equal(store.snapshotSession("s1")[today].total, 15);
+});
+
+test("applyBackfill after a full scan prunes deleted sessions and merges maps", async () => {
+  const { store, dir } = makeStore();
+  const today = dayKeyOf(Date.now());
+  store.addUsage("gone", today, 1, 1);
+  store.addUsage("alive", today, 1, 1);
+  const runner = new BackfillRunner(dir, {
+    async list() {
+      return [{ id: "alive" }];
+    },
+    async inspect(id: string) {
+      return { meta: { id } as never, events: [] };
+    },
+  } as never);
+  store.applyBackfill(await runner.run());
+  assert.deepEqual(store.snapshotSession("gone"), {});
+  assert.equal(store.snapshotSession("alive")[today].total, 2);
+});
+
+test("applyBackfill with unavailable persistence keeps per-session data", async () => {
+  const { store, dir } = makeStore();
+  const today = dayKeyOf(Date.now());
+  store.addUsage("s1", today, 4, 4);
+  const runner = new BackfillRunner(dir, undefined);
+  store.applyBackfill(await runner.run());
+  assert.equal(store.snapshotSession("s1")[today].total, 8);
 });

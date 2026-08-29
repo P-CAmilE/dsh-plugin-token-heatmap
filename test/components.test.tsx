@@ -75,6 +75,9 @@ describe("HeatmapGrid formatting", () => {
     expect(screen.getByText("本周 110")).toBeTruthy();
     expect(screen.getByText("本月 110")).toBeTruthy();
     expect(screen.getByText("12 个月 110")).toBeTruthy();
+    // 图例两行：色块行在上，少/多标注行在下
+    expect(screen.getByText("少")).toBeTruthy();
+    expect(screen.getByText("多")).toBeTruthy();
     expect(screen.queryByTestId("back-to-latest")).toBeNull();
   });
 
@@ -146,6 +149,8 @@ describe("TokenHeatmapOverlay", () => {
     render(<TokenHeatmapOverlay api={api} sessions={makeFakeSessions()} />);
     // 全局视图渲染（有 2026-08-25）
     await waitFor(() => expect(document.querySelector("[data-day='2026-08-25']")).toBeTruthy());
+    // 窗口宽度贴合内容（max-content），不再硬编码 300px 宽
+    expect((document.querySelector("[data-th-window]") as HTMLElement).style.width).toBe("max-content");
     // 08-24 全局无数据：单元格存在但 level 0
     expect(document.querySelector("[data-day='2026-08-24']")?.getAttribute("data-level")).toBe("0");
     // 切换到会话视图：版本号相同（5）——若沿用旧视图数据，08-24 仍为 level 0

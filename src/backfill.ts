@@ -59,6 +59,8 @@ export interface BackfillResult {
   scannedIds: string[];
   scanned: number;
   skipped: number;
+  /** 本次是否真正枚举了会话库：只有枚举过的 scannedIds 才有资格作为存活集合去 prune。 */
+  enumerated: boolean;
 }
 
 export class BackfillRunner {
@@ -81,11 +83,11 @@ export class BackfillRunner {
   async run(): Promise<BackfillResult> {
     const prior = this.meta();
     if (prior.done) {
-      return { global: {}, bySession: {}, scannedIds: [], scanned: prior.scanned, skipped: prior.skipped };
+      return { global: {}, bySession: {}, scannedIds: [], scanned: prior.scanned, skipped: prior.skipped, enumerated: false };
     }
     if (this.persistence === undefined) {
       this.writeMeta({ done: true, scanned: 0, skipped: 0, startedAt: Date.now(), finishedAt: Date.now() });
-      return { global: {}, bySession: {}, scannedIds: [], scanned: 0, skipped: 0 };
+      return { global: {}, bySession: {}, scannedIds: [], scanned: 0, skipped: 0, enumerated: false };
     }
     this.writeMeta({ done: false, scanned: 0, skipped: 0, startedAt: Date.now(), finishedAt: null });
     const headers = await this.persistence.list();
@@ -107,7 +109,7 @@ export class BackfillRunner {
     prune(global, cutoff);
     for (const map of Object.values(bySession)) prune(map, cutoff);
     this.writeMeta({ done: true, scanned: headers.length, skipped, startedAt: prior.startedAt ?? Date.now(), finishedAt: Date.now() });
-    return { global, bySession, scannedIds, scanned: headers.length, skipped };
+    return { global, bySession, scannedIds, scanned: headers.length, skipped, enumerated: true };
   }
 
   private writeMeta(meta: BackfillMeta): void {

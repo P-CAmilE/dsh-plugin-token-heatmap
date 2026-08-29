@@ -34,11 +34,9 @@ export function apply(ctx: Context): void {
     );
   });
 
-  // 一次性回填（异步，与实时累计同 map 合并）；完成后清理已删除会话并落盘。
+  // 一次性回填（异步，与实时累计同 map 合并）；done 短路时不得 prune（会清空按会话数据）。
   void runner.run().then((result) => {
-    store.pruneSessions(new Set(result.scannedIds));
-    store.mergeBackfill(result.global, result.bySession);
-    store.flush();
+    store.applyBackfill(result);
   });
 
   // 插件卸载时把未落盘的数据写盘（防御节流定时器未触发）。

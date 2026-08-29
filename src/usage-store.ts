@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { cutoffKey } from "./day.ts";
 import { addUsage, mergeMaps, prune, type DailyUsageMap } from "./usage.ts";
+import type { BackfillResult } from "./backfill.ts";
 
 const WRITE_DELAY_MS = 5000;
 
@@ -58,6 +59,15 @@ export class UsageStore {
     for (const id of Object.keys(this.bySession)) {
       if (!liveIds.has(id)) delete this.bySession[id];
     }
+  }
+
+  /** 启动时应用回填结果：只有真正枚举过会话库的结果才有资格 prune，否则会清空全部按会话数据。 */
+  applyBackfill(result: BackfillResult): void {
+    if (result.enumerated) {
+      this.pruneSessions(new Set(result.scannedIds));
+    }
+    this.mergeBackfill(result.global, result.bySession);
+    this.flush();
   }
 
   flush(): void {
