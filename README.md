@@ -1,6 +1,6 @@
 # dsh-plugin-token-heatmap
 
-GitHub 风格的每日 Token 用量热力图插件，面向 DeepSeek Harness Web GUI（dsh web profile）。
+该插件为每日 Token 用量热力图插件，面向 DeepSeek Harness Web GUI（dsh web profile）。
 
 以 53 周 × 7 天的网格展示每日 token 消耗，右下角常驻一个按当日消耗着色的方形图标，点击展开可拖动的悬浮窗。数据权威在宿主端：安装后自动回填历史会话日志，之后实时累计。
 
@@ -19,7 +19,7 @@ GitHub 风格的每日 Token 用量热力图插件，面向 DeepSeek Harness Web
 
 - Node.js ≥ 20，pnpm
 - DeepSeek Harness web profile（宿主需提供 `@deepseek-ai/*` 运行时，见 `peerDependencies`）
-- 依赖 `@deepseek-ai/*` 为内部私有包，仅能在 DSH 环境内安装；本包 `private: true`，不发布公共 npm
+- 依赖 `@deepseek-ai/*` 为内部私有包，仅能在 DSH 环境内安装
 
 ## 构建
 
@@ -36,21 +36,13 @@ pnpm test           # node --test，宿主端单元测试
 pnpm test:ui        # vitest，客户端组件测试
 ```
 
-## 安装到 DSH web profile
+## 安装
 
 ```bash
-# 1. 以 file: 方式装入 web profile
-pnpm --dir ~/.dsh/profiles/web add file:/path/to/dsh-plugin-token-heatmap
-
-# 2. 在 ~/.dsh/profiles/web/cordis.patch.yml 声明插件
-- insert:
-    - id: token-heatmap
-      name: 'dsh-plugin-token-heatmap'
-
-# 3. 重启 dsh web（或等待 profile watcher 热重载），刷新 http://127.0.0.1:3080
+dsh plugin --profile web add dsh-plugin-token-heatmap
 ```
 
-右下角出现方形图标即安装成功。首次启动后台执行回填，期间界面可用。
+重启dsh web，右下角出现方形图标即安装成功。首次启动后台执行回填，期间界面可用。
 
 ## 数据存储
 
@@ -100,4 +92,4 @@ src/
 
 ## License
 
-内部项目，未授权公开使用。
+[MIT](LICENSE)

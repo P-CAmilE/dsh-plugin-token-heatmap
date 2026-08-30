@@ -2,6 +2,19 @@
   "name": "dsh-plugin-token-heatmap",
   "version": "0.1.0",
   "description": "GitHub-style daily token usage heatmap for DeepSeek Harness Web",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/P-CAmilE/dsh-plugin-token-heatmap.git"
+  },
+  "keywords": [
+    "deepseek",
+    "harness",
+    "dsh",
+    "dsh-plugin",
+    "token-usage",
+    "heatmap"
+  ],
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
