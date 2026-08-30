@@ -2,7 +2,6 @@
   "name": "dsh-plugin-token-heatmap",
   "version": "0.1.0",
   "description": "GitHub-style daily token usage heatmap for DeepSeek Harness Web",
-  "private": true,
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
@@ -18,9 +17,13 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "lib"
+    "lib",
+    "cordis.patch.yml"
   ],
   "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "inject": [
         "@deepseek-ai/dsh-client-runtime",
@@ -31,6 +34,8 @@
   },
   "scripts": {
     "build": "node build.mjs",
+    "prepare": "pnpm build",
+    "prepack": "pnpm build",
     "typecheck": "tsc --noEmit",
     "test": "node --import ./test/helpers/ts-decorators-preload.mjs --test \"test/**/*.test.ts\"",
     "test:ui": "vitest run"
