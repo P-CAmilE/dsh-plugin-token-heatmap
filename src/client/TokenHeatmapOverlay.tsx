@@ -146,7 +146,7 @@ export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote
   const [backfill, setBackfill] = useState<BackfillStatusPayload | null>(null);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
-  /** 数据身份 = 视图 + 宿主版本号：全局/会话共享同一版本计数，切换视图时不能沿用另一视图的旧数据。 */
+  /** 数据身份 = 视图 + 会话 + 宿主版本号：宿主版本为全局限源，会话切换/视图切换都不能沿用旧的 `days`。 */
   const dataKeyRef = useRef<string>("");
   const [currentId, setCurrentId] = useState<string | undefined>(() => sessions.list.getSnapshot().current);
   const positionRef = useRef(position);
@@ -188,7 +188,8 @@ export function TokenHeatmapOverlay({ api, sessions }: { api: TokenHeatmapRemote
           api.getBackfillStatus(),
         ]);
         if (cancelled) return;
-        const key = view + ":" + payload.version;
+        const id = view === "session" ? currentId ?? "" : "";
+        const key = `${view}:${id}:${payload.version}`;
         if (dataKeyRef.current !== key) {
           dataKeyRef.current = key;
           setData(payload);

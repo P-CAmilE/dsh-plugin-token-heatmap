@@ -35,15 +35,25 @@ export function buildWeeks(endKey: string, count = 53): Cell[][] {
   return weeks;
 }
 
-/** 每周一个标签：该周首个非未来日所在月份与上一行不同时给 'N月'，否则 null。 */
+/** 每周一个标签：月份取该周（仅计非未来日）占多数的月，与上一行不同时给 'N月'，否则 null；多数持平选最新日所属月。 */
 export function monthLabels(weeks: Cell[][]): (string | null)[] {
   let previous: number | null = null;
   return weeks.map((week) => {
-    const first = week.find((c) => !c.future);
-    if (first === undefined) return null;
-    if (previous === first.month) return null;
-    previous = first.month;
-    return first.month + 1 + "月";
+    const present = week.filter((c) => !c.future);
+    if (present.length === 0) return null;
+    const counts = new Map<number, number>();
+    for (const c of present) counts.set(c.month, (counts.get(c.month) ?? 0) + 1);
+    let anchor = present[0].month;
+    let freq = 0;
+    for (const c of present) {
+      const n = counts.get(c.month) ?? 0;
+      if (n > freq) { freq = n; anchor = c.month; }
+    }
+    const last = present[present.length - 1].month;
+    if ((counts.get(last) ?? 0) === freq) anchor = last;
+    if (previous === anchor) return null;
+    previous = anchor;
+    return anchor + 1 + "月";
   });
 }
 

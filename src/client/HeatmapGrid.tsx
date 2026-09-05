@@ -234,17 +234,17 @@ function DayCell({
       data-level={level}
       data-th-cell
       onMouseEnter={(e) => {
-        if (entry !== undefined && !cell.future) {
-          onHover({
-            key: cell.key,
-            total: entry.total,
-            input: entry.input,
-            output: entry.output,
-            cache: entry.cacheRead + entry.cacheWrite,
-            x: e.clientX,
-            y: e.clientY,
-          });
-        }
+        if (cell.future) return;
+        const info = entry ?? { total: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+        onHover({
+          key: cell.key,
+          total: info.total,
+          input: info.input,
+          output: info.output,
+          cache: info.cacheRead + info.cacheWrite,
+          x: e.clientX,
+          y: e.clientY,
+        });
       }}
       onMouseLeave={() => onHover(null)}
       style={{ ...style.cell, background: LEVEL_COLORS[level], opacity: cell.future ? 0.25 : 1 }}

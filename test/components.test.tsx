@@ -107,6 +107,18 @@ describe("HeatmapGrid formatting", () => {
     fireEvent.mouseLeave(cell as Element);
     expect(screen.queryByTestId("cell-tooltip")).toBeNull();
   });
+
+  it("shows date tooltip on zero-token cells too", () => {
+    render(<HeatmapGrid days={days} endKey="2026-08-25" />);
+    const cell = document.querySelector('[data-day="2026-08-20"]'); // 无数据非未来日
+    expect(cell).toBeTruthy();
+    fireEvent.mouseEnter(cell as Element);
+    const tooltip = screen.getByTestId("cell-tooltip");
+    expect(tooltip.textContent).toContain("2026-08-20");
+    expect(tooltip.textContent).toContain("0 tokens");
+    fireEvent.mouseLeave(cell as Element);
+    expect(screen.queryByTestId("cell-tooltip")).toBeNull();
+  });
 });
 import { TokenHeatmapOverlay } from "../src/client/TokenHeatmapOverlay.tsx";
 import type { SessionRuntime } from "@deepseek-ai/dsh-client-runtime/client";
@@ -136,7 +148,50 @@ function makeFakeSessions(): SessionRuntime {
   } as unknown as SessionRuntime;
 }
 
+function makeSwitchableSessions(initial: string): SessionRuntime & { switchTo(id: string): void } {
+  let current = initial;
+  const listeners = new Set<() => void>();
+  return {
+    list: {
+      getSnapshot: () => ({ current, ids: [current], byId: {}, phase: "ready", subagentsByParent: {}, jobsBySession: {}, currentAddress: undefined }),
+      subscribe: (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; },
+    },
+    switchTo: (id: string) => { current = id; listeners.forEach((fn) => fn()); },
+  } as unknown as SessionRuntime & { switchTo(id: string): void };
+}
+
 describe("TokenHeatmapOverlay", () => {
+  it("refreshes data when the active session switches even if host version collides", async () => {
+    const ls = new Map<string, string>();
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: (k: string) => ls.get(k) ?? null,
+        setItem: (k: string, v: string) => { ls.set(k, v); },
+        removeItem: (k: string) => { ls.delete(k); },
+        clear: () => ls.clear(),
+      },
+    });
+    ls.set("dsh.tokenHeatmap.visible", "1");
+    ls.set("dsh.tokenHeatmap.view", "session");
+    // s1 只有 08-24 非零；s2 只有 08-28 非零；两会话共用宿主版本号 5（全局限源）
+    const perSession = {
+      s1: { "2026-08-24": { total: 5, input: 5, output: 0, cacheRead: 0, cacheWrite: 0 } },
+      s2: { "2026-08-28": { total: 40, input: 40, output: 0, cacheRead: 0, cacheWrite: 0 } },
+    } as const;
+    const getSessionUsage = vi.fn(async (id: string) => ({ version: 5, days: (perSession as Record<string, unknown>)[id] ?? {} }));
+    const api = { getGlobalUsage: async () => ({ version: 5, days: {} }), getSessionUsage, getBackfillStatus: async () => ({ done: true, scanned: 0, skipped: 0, startedAt: null, finishedAt: null }) } as unknown as TokenHeatmapRemote & { getSessionUsage: typeof getSessionUsage };
+    const sessions = makeSwitchableSessions("s1");
+    render(<TokenHeatmapOverlay api={api} sessions={sessions} />);
+    await waitFor(() => expect(document.querySelector("[data-day='2026-08-24']")?.getAttribute("data-level")).toBe("3"));
+    sessions.switchTo("s2");
+    await waitFor(() => expect(getSessionUsage).toHaveBeenCalledWith("s2"));
+    await waitFor(() => {
+      expect(document.querySelector("[data-day='2026-08-28']")?.getAttribute("data-level")).toBe("3");
+      expect(document.querySelector("[data-day='2026-08-24']")?.getAttribute("data-level")).toBe("0");
+    });
+  });
+
   it("refreshes data when switching views even if host version collides", async () => {
     // jsdom 未挂载 localStorage：注入内存 stub（与组件内 try/catch 防御一致）
     const ls = new Map<string, string>();

@@ -24,6 +24,18 @@ test("monthLabels marks month changes", () => {
   assert.equal(labels[jul27], "7月");
 });
 
+test("monthLabels reflects current month when the latest week straddles it", () => {
+  // 2026-09-02 周三：最新周 08-31..09-06 多数天属 9 月 → 顶部标签为 9月
+  const weeks = buildWeeks("2026-09-02");
+  const labels = monthLabels(weeks);
+  assert.equal(labels[0], "9月");
+  const aug24 = weeks.findIndex((w) => w[0].key === "2026-08-24");
+  assert.equal(labels[aug24], "8月");
+  // 边界：09-01 周二，最新周非未来日 08-31 与 09-01 各半 → 取最新日所属月
+  const weeks2 = buildWeeks("2026-09-01");
+  assert.equal(monthLabels(weeks2)[0], "9月");
+});
+
 test("sumRange sums totals within inclusive key bounds", () => {
   const days = {
     "2026-08-24": { total: 10, input: 5, output: 5, cacheRead: 0, cacheWrite: 0 },
