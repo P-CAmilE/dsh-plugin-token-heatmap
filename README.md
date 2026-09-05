@@ -2,7 +2,7 @@
 
 该插件为每日 Token 用量热力图插件，面向 DeepSeek Harness Web GUI（dsh web profile）。
 
-以 53 周 × 7 天的网格展示每日 token 消耗，右下角常驻一个按当日消耗着色的方形图标，点击展开可拖动的悬浮窗。数据权威在宿主端：安装后自动回填历史会话日志，之后实时累计。
+![截图](./screenshot.png)
 
 ## 功能
 
